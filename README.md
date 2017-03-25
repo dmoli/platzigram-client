@@ -1,6 +1,6 @@
 # platzigram-client
 
-Pictures responsive website - Client
+Nodejs project - Client
 
 Bridge between Frontend and API
 
