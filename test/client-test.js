@@ -1,0 +1,189 @@
+'use strict'
+
+const test = require('ava')
+const platzigram = require('../')
+const fixtures = require('./fixtures')
+const nock = require('nock')
+
+let options = {
+  endpoints: {
+    pictures: 'http://platzigram.test/picture',
+    users: 'http://platzigram.test/user',
+    auth: 'http://platzigram.test/auth'
+  }
+}
+
+test.beforeEach(t => {
+  t.context.client = platzigram.createClient(options)
+})
+
+test('client', t => {
+  const client = t.context.client
+  t.is(typeof client.getPicture, 'function')
+  t.is(typeof client.savePicture, 'function')
+  t.is(typeof client.likePicture, 'function')
+  t.is(typeof client.listPictures, 'function')
+  t.is(typeof client.listPicturesByTag, 'function')
+  t.is(typeof client.saveUser, 'function')
+  t.is(typeof client.getUser, 'function')
+  t.is(typeof client.auth, 'function')
+})
+
+test('getPicture', async t => {
+  const client = t.context.client
+
+  let image = fixtures.getImage()
+
+  // create a mock
+  nock(options.endpoints.pictures)
+    .get(`/${image.publicId}`)
+    .reply(200, image)
+
+  let result = await client.getPicture(image.publicId)
+
+  t.deepEqual(result, image)
+})
+
+test('savePicture', async t => {
+  const client = t.context.client
+
+  let token = 'xxx-xxx-xx'
+  let image = fixtures.getImage()
+  let newImage = {
+    src: image.src,
+    description: image.description
+  }
+
+  // create a mock
+  nock(options.endpoints.pictures, {
+    reqheaders: {
+      'Authorization': `Bearer ${token}`
+    }
+  })
+    .post('/', newImage)
+    .reply(201, image)
+
+  let result = await client.savePicture(newImage, token)
+
+  t.deepEqual(result, image)
+})
+
+test('likePicture', async t => {
+  const client = t.context.client
+
+  let image = fixtures.getImage()
+  image.liked = true
+  image.likes = 1
+
+  // create a mock
+  nock(options.endpoints.pictures)
+    .post(`/${image.publicId}/like`)
+    .reply(200, image)
+
+  let result = await client.likePicture(image.publicId)
+
+  t.deepEqual(result, image)
+})
+
+test('listPictures', async t => {
+  const client = t.context.client
+
+  let images = fixtures.getImages(3)
+
+  // create a mock
+  nock(options.endpoints.pictures)
+    .get('/list')
+    .reply(200, images)
+
+  let result = await client.listPictures()
+
+  t.deepEqual(result, images)
+})
+
+test('listPicturesByTag', async t => {
+  const client = t.context.client
+
+  let tag = 'platzi'
+  let images = fixtures.getImages(2)
+
+  // create a mock
+  nock(options.endpoints.pictures)
+    .get(`/tag/${tag}`)
+    .reply(200, images)
+
+  let result = await client.listPicturesByTag(tag)
+
+  t.deepEqual(result, images)
+})
+
+test('listPicturesByUserId', async t => {
+  const client = t.context.client
+
+  let userId = 'skumblue'
+  let images = fixtures.getImages(3)
+
+  // create a mock
+  nock(options.endpoints.pictures)
+    .get(`/userId/${userId}`)
+    .reply(200, images)
+
+  let result = await client.listPicturesByUserId(userId)
+
+  t.deepEqual(result, images)
+})
+
+test('saveUser', async t => {
+  const client = t.context.client
+
+  let user = fixtures.getUser()
+  let newUser = {
+    name: user.name,
+    username: user.username,
+    password: user.password,
+    email: user.email
+  }
+
+  // create a mock
+  nock(options.endpoints.users)
+    .post('/', newUser)
+    .reply(201, user)
+
+  client.saveUser(newUser, function (err, data) {
+    t.is(err, null)
+    t.deepEqual(data, user)
+  })
+})
+
+test('getUser', async t => {
+  const client = t.context.client
+
+  let user = fixtures.getUser()
+
+  // create a mock
+  nock(options.endpoints.users)
+    .get(`/${user.username}`)
+    .reply(200, user)
+
+  let result = await client.getUser(user.username)
+
+  t.deepEqual(result, user)
+})
+
+test('auth', async t => {
+  let client = t.context.client
+
+  let credentials = {
+    username: 'skumblue',
+    password: '1234'
+  }
+
+  let token = 'xxx-xxx-xx'
+
+  // create a mock
+  nock(options.endpoints.auth)
+    .post('/', credentials)
+    .reply(200, token)
+
+  let result = await client.auth(credentials.username, credentials.password)
+  t.is(result, token)
+})
